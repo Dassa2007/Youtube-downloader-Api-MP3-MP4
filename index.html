@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YT Downloader - MP3 / MP4</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,sans-serif; }
+  body { min-height:100vh; background: linear-gradient(135deg,#0f0c29,#302b63,#24243e); display:flex; justify-content:center; align-items:center; padding:20px; color:#fff; }
+  .container { width:100%; max-width:560px; background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border:1px solid rgba(255,255,255,0.1); border-radius:24px; padding:32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+  .header { text-align:center; margin-bottom:28px; }
+  .logo { display:inline-flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .logo-icon { width:44px; height:44px; background: linear-gradient(135deg,#ff0000,#ff4d4d); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .header h1 { font-size:24px; font-weight:700; background: linear-gradient(90deg,#fff,#b8b8ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .header p { font-size:13px; color:#9ca3af; margin-top:6px; }
+  .input-group { margin-bottom:16px; }
+  .input-group input { width:100%; padding:16px 18px; background: rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.12); border-radius:14px; color:#fff; font-size:15px; outline:none; }
+  .input-group input::placeholder { color:#6b7280; }
+  .tabs { display:flex; gap:8px; background: rgba(0,0,0,0.25); padding:6px; border-radius:14px; margin-bottom:16px; }
+  .tab { flex:1; padding:12px; text-align:center; border-radius:10px; cursor:pointer; font-weight:600; font-size:14px; color:#9ca3af; }
+  .tab.active { background: linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; }
+  .btn { width:100%; padding:16px; border:none; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; color:#fff; background: linear-gradient(135deg,#8b5cf6,#6366f1); }
+  .btn:disabled { opacity:0.6; }
+  .loader { display:inline-block; width:18px; height:18px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .result { margin-top:20px; display:none; }
+  .card { background: rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:16px; }
+  .video-info { display:flex; gap:14px; align-items:center; margin-bottom:16px; }
+  .video-info img { width:100px; height:62px; border-radius:10px; object-fit:cover; background:#111; }
+  .video-meta h3 { font-size:14px; font-weight:600; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .video-meta span { font-size:12px; color:#9ca3af; display:block; margin-top:4px; }
+  .download-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:14px; background: linear-gradient(135deg,#10b981,#059669); color:#fff; text-decoration:none; border-radius:12px; font-weight:700; font-size:14px; }
+  .error { background: rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; padding:14px; border-radius:12px; font-size:13px; text-align:center; margin-top:16px; }
+  .footer { text-align:center; margin-top:24px; font-size:11px; color:#6b7280; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">▶</div>
+      <h1>YT Downloader</h1>
+    </div>
+    <p>YouTube videos ලේසියෙන්ම MP3 / MP4 බාගන්න</p>
+  </div>
+  <div class="input-group">
+    <input type="text" id="urlInput" placeholder="YouTube video link මෙතන paste කරන්න..." />
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-type="mp3">🎵 MP3</div>
+    <div class="tab" data-type="mp4">🎬 MP4</div>
+  </div>
+  <button class="btn" id="downloadBtn"><span id="btnText">Download කරන්න</span></button>
+  <div class="result" id="result"></div>
+  <div class="footer">Powered by Multi Downloader API</div>
+</div>
+
+<script>
+  // ⭐ මෙතන ඔබේ Vercel URL එක දාන්න
+  const API_BASE = "https://youtube-downloader-api-mp-3-mp-4.vercel.app";
+
+  const urlInput = document.getElementById("urlInput");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const btnText = document.getElementById("btnText");
+  const resultBox = document.getElementById("result");
+  let selectedType = "mp3";
+
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      selectedType = tab.dataset.type;
+    });
+  });
+
+  function getVideoId(url) {
+    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+
+  function showError(msg) {
+    resultBox.style.display = "block";
+    resultBox.innerHTML = `<div class="error">⚠️ ${msg}</div>`;
+  }
+
+  function setLoading(l) {
+    downloadBtn.disabled = l;
+    btnText.innerHTML = l ? '<span class="loader"></span> බාගනිමින්...' : 'Download කරන්න';
+  }
+
+  function extractUrl(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+    const fields = ['url','download','link','downloadUrl','audio','video','mp3','mp4','result','file'];
+    for (const f of fields) {
+      if (typeof obj[f] === 'string' && obj[f].startsWith('http')) return obj[f];
+    }
+    for (const key of Object.keys(obj)) {
+      const v = obj[key];
+      if (Array.isArray(v)) {
+        for (const i of v) { const x = extractUrl(i); if (x) return x; }
+      } else if (v && typeof v === 'object') {
+        const x = extractUrl(v); if (x) return x;
+      }
+    }
+    return null;
+  }
+
+  function sanitize(name, ext) {
+    let n = (name || "video").replace(/[\\/:*?"<>|]/g, "_").trim().slice(0, 60);
+    return n + "." + ext;
+  }
+
+  async function handleDownload() {
+    const url = urlInput.value.trim();
+    resultBox.style.display = "none";
+    resultBox.innerHTML = "";
+
+    if (!url) return showError("කරුණාකර link එකක් paste කරන්න.");
+    const vid = getVideoId(url);
+    if (!vid) return showError("වලංගු YouTube link එකක් නෙවෙයි.");
+
+    setLoading(true);
+    const cleanUrl = `https://www.youtube.com/watch?v=${vid}`;
+    const apiUrl = `${API_BASE}/api/yt?url=${encodeURIComponent(cleanUrl)}`;
+
+    try {
+      const res = await fetch(apiUrl);
+      const json = await res.json();
+      const foundUrl = extractUrl(json);
+
+      if (!foundUrl) throw new Error("Download link එකක් හමු නොවුණා.");
+
+      const payload = json.data || json.result || json;
+      const title = payload.title || "YouTube Video";
+      const thumb = payload.thumbnail || `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`;
+
+      const ext = selectedType === "mp3" ? "mp3" : "mp4";
+      const filename = sanitize(title, ext);
+
+      // ⭐ Proxy URL එකක් හදනවා
+      const proxyUrl = `${API_BASE}/api/proxy?url=${encodeURIComponent(foundUrl)}&filename=${encodeURIComponent(filename)}`;
+
+      resultBox.style.display = "block";
+      resultBox.innerHTML = `
+        <div class="card">
+          <div class="video-info">
+            <img src="${thumb}" onerror="this.src='https://i.ytimg.com/vi/${vid}/mqdefault.jpg'"/>
+            <div class="video-meta">
+              <h3>${title.replace(/</g,"&lt;")}</h3>
+              <span>${selectedType.toUpperCase()}</span>
+            </div>
+          </div>
+          <a class="download-btn" href="${proxyUrl}" download="${filename}">
+            ⬇ ${selectedType.toUpperCase()} බාගන්න
+          </a>
+        </div>
+      `;
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  downloadBtn.addEventListener("click", handleDownload);
+  urlInput.addEventListener("keydown", e => { if (e.key === "Enter") handleDownload(); });
+</script>
+</body>
+</html>
