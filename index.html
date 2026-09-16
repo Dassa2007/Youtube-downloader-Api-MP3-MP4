@@ -138,8 +138,8 @@
       const filename = sanitize(title, ext);
 
       // ⭐ Proxy URL එකක් හදනවා
-      const proxyUrl = `${API_BASE}/api/proxy?url=${encodeURIComponent(foundUrl)}&filename=${encodeURIComponent(filename)}`;
-
+     const proxyUrl = `${API_BASE}/proxy?url=${encodeURIComponent(foundUrl)}&filename=${encodeURIComponent(filename)}`;
+      
       resultBox.style.display = "block";
       resultBox.innerHTML = `
         <div class="card">
