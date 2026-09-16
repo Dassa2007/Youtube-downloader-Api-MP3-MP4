@@ -194,21 +194,34 @@
   }
 
   // Extract download URL from any JSON structure
-  function extractDownloadUrl(obj) {
+  function extractDownloadUrl(obj, type) {
     if (!obj || typeof obj !== 'object') return null;
-    const fields = ['url','download','link','downloadUrl','download_url','audio','audioUrl','audio_url','video','videoUrl','video_url','mp3','mp4','result','file','src','media'];
-    for (const f of fields) {
+    
+    // ⭐ type එකට ගැලපෙන fields මුලින්ම බලනවා
+    const typeFields = type === 'mp3' 
+      ? ['mp3','audio','audioUrl','audio_url'] 
+      : ['mp4','video','videoUrl','video_url'];
+    
+    for (const f of typeFields) {
       if (typeof obj[f] === 'string' && obj[f].startsWith('http')) return obj[f];
     }
+    
+    // ඊට පස්සේ common fields
+    const commonFields = ['url','download','link','downloadUrl','download_url','result','file','src','media'];
+    for (const f of commonFields) {
+      if (typeof obj[f] === 'string' && obj[f].startsWith('http')) return obj[f];
+    }
+    
+    // Recursive search
     for (const key of Object.keys(obj)) {
       const val = obj[key];
       if (Array.isArray(val)) {
         for (const item of val) {
-          const found = extractDownloadUrl(item);
+          const found = extractDownloadUrl(item, type);
           if (found) return found;
         }
       } else if (val && typeof val === 'object') {
-        const found = extractDownloadUrl(val);
+        const found = extractDownloadUrl(val, type);
         if (found) return found;
       }
     }
@@ -251,8 +264,9 @@
     setLoading(true);
 
     const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    // ⭐ Cloudflare Worker එකේ API path එක = "/?url=..."
-    const apiUrl = `${API_BASE}/?url=${encodeURIComponent(cleanUrl)}`;
+    
+    // ⭐ type parameter එකත් යවනවා
+    const apiUrl = `${API_BASE}/?url=${encodeURIComponent(cleanUrl)}&type=${selectedType}`;
 
     try {
       const res = await fetch(apiUrl);
@@ -262,7 +276,9 @@
       }
 
       const json = await res.json();
-      const foundUrl = extractDownloadUrl(json);
+      
+      // ⭐ type එකට ගැලපෙන URL එක හොයනවා
+      const foundUrl = extractDownloadUrl(json, selectedType);
 
       if (!foundUrl) {
         throw new Error("Download link එකක් හමු නොවුණා.");
@@ -276,7 +292,7 @@
       const ext = selectedType === "mp3" ? "mp3" : "mp4";
       const filename = sanitizeFilename(title, ext);
 
-      // ⭐ Cloudflare Worker proxy URL එක = "/proxy?..."
+      // ⭐ Cloudflare Worker proxy URL එක
       const proxyUrl = `${API_BASE}/proxy?url=${encodeURIComponent(foundUrl)}&filename=${encodeURIComponent(filename)}`;
 
       resultBox.style.display = "block";
