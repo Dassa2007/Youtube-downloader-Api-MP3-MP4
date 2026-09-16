@@ -1,3 +1,9 @@
+export const config = {
+  api: {
+    responseLimit: false,
+  },
+};
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -31,14 +37,16 @@ export default async function handler(req, res) {
     );
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${encodeURIComponent(filename || "download.mp4")}"`
+      'attachment; filename="' + encodeURIComponent(filename || "download.mp4") + '"'
     );
 
     const len = upstream.headers.get("content-length");
     if (len) res.setHeader("Content-Length", len);
 
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    return res.send(buffer);
+    // ⭐ Buffer වෙනුවට ArrayBuffer එකෙන් stream කරනවා
+    const arrayBuffer = await upstream.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.end(buffer);
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
